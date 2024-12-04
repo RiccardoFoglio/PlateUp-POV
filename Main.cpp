@@ -13,6 +13,7 @@
 
 #include <glm/gtx/intersect.hpp> // For ray-box intersection
 
+//ciao
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);

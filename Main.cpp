@@ -19,9 +19,15 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
+bool intersectRayAABB(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& boxMin, const glm::vec3& boxMax, float& tMin, float& tMax);
+bool rayIntersectsCube(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& cubePosition, float cubeSize);
+
+
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
+float aspectRatio = (float)SCR_WIDTH / (float)SCR_HEIGHT; // 1.3333
+
 
 // camera
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
@@ -32,106 +38,6 @@ bool firstMouse = true;
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
-
-
-// Crosshair vertex data
-float crosshairVertices[] = {
-    // Small quad at the center of the screen
-    -0.01f, -0.01f, 0.0f, // Bottom-left
-     0.01f, -0.01f, 0.0f, // Bottom-right
-     0.01f,  0.01f, 0.0f, // Top-right
-    -0.01f,  0.01f, 0.0f  // Top-left
-};
-
-unsigned int crosshairVAO, crosshairVBO;
-
-void setupCrosshair() {
-    glGenVertexArrays(1, &crosshairVAO);
-    glGenBuffers(1, &crosshairVBO);
-
-    glBindVertexArray(crosshairVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, crosshairVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(crosshairVertices), crosshairVertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    glBindVertexArray(0);
-}
-
-// Function to render crosshair
-void renderCrosshair(Shader& shader) {
-    // Use orthographic projection
-    glm::mat4 projection = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f);
-    shader.use();
-    shader.setMat4("projection", projection);
-
-    glBindVertexArray(crosshairVAO);
-    glDrawArrays(GL_LINE_LOOP, 0, 4); // Draw as a small rectangle or quad outline
-    glBindVertexArray(0);
-}
-
-
-bool intersectRayAABB(
-    const glm::vec3& rayOrigin,
-    const glm::vec3& rayDirection,
-    const glm::vec3& boxMin,
-    const glm::vec3& boxMax,
-    float& tMin, // Output: the closest intersection distance
-    float& tMax  // Output: the farthest intersection distance
-) {
-    tMin = 0.0f; // Start with the ray's origin
-    tMax = std::numeric_limits<float>::max();
-
-    for (int i = 0; i < 3; i++) {
-        if (fabs(rayDirection[i]) < 1e-8) { // Parallel ray
-            if (rayOrigin[i] < boxMin[i] || rayOrigin[i] > boxMax[i]) {
-                return false; // No intersection
-            }
-        }
-        else {
-            // Compute intersection distances for this axis
-            float t1 = (boxMin[i] - rayOrigin[i]) / rayDirection[i];
-            float t2 = (boxMax[i] - rayOrigin[i]) / rayDirection[i];
-
-            // Ensure t1 is the minimum and t2 is the maximum
-            if (t1 > t2) std::swap(t1, t2);
-
-            // Update tMin and tMax to find the intersection interval
-            tMin = std::max(tMin, t1);
-            tMax = std::min(tMax, t2);
-
-            // If the intervals do not overlap, no intersection
-            if (tMin > tMax) return false;
-        }
-    }
-    return true; // Intersection occurs
-}
-
-// Function to detect ray-cube intersection
-bool rayIntersectsCube(
-    const glm::vec3& rayOrigin,
-    const glm::vec3& rayDirection,
-    const glm::vec3& cubePosition,
-    float cubeSize
-) {
-    glm::vec3 boxMin = cubePosition - glm::vec3(cubeSize / 2.0f);
-    glm::vec3 boxMax = cubePosition + glm::vec3(cubeSize / 2.0f);
-    float tMin, tMax;
-
-    return intersectRayAABB(rayOrigin, rayDirection, boxMin, boxMax, tMin, tMax);
-}
-
-
-bool cubeHovered[10] = { false };
-
-
-
-
-
-
-
-
 
 
 
@@ -180,6 +86,7 @@ int main()
     // build and compile our shader zprogram
     // ------------------------------------
     Shader ourShader("shader.vs", "shader.fs");
+    Shader crosshairShader("crosshair.vs", "crosshair.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -310,9 +217,43 @@ int main()
     ourShader.setInt("texture2", 1);
 
 
+    // -------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------------
+    // -------------------------------------------------------------------------------------------
 
-    Shader crosshairShader("crosshair.vs", "crosshair.fs");
-    setupCrosshair();
+
+
+    // Crosshair Setup
+    float crosshairVertices[] = {
+        -0.03f / aspectRatio,  0.0f,
+         0.03f / aspectRatio,  0.0f,
+          0.0f, -0.03f,
+          0.0f,  0.03f
+    };
+
+    unsigned int crosshairVAO, crosshairVBO;
+    glGenVertexArrays(1, &crosshairVAO);
+    glGenBuffers(1, &crosshairVBO);
+
+    // Bind VAO
+    glBindVertexArray(crosshairVAO);
+
+    // Bind and set VBO
+    glBindBuffer(GL_ARRAY_BUFFER, crosshairVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(crosshairVertices), crosshairVertices, GL_STATIC_DRAW);
+
+    // Vertex attribute setup
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // Unbind
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    crosshairShader.use();
+
+
+
 
 
 
@@ -393,11 +334,10 @@ int main()
         }
 
         // After rendering cubes, render the crosshair
-        renderCrosshair(crosshairShader);
+        crosshairShader.use();
 
-        // Add cleanup for crosshair VAO/VBO before terminating GLFW
-        glDeleteVertexArrays(1, &crosshairVAO);
-        glDeleteBuffers(1, &crosshairVBO);
+        glBindVertexArray(crosshairVAO);
+        glDrawArrays(GL_LINES, 0, 4);        
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -405,17 +345,14 @@ int main()
         glfwPollEvents();
     }
 
-
-
-
-
-
-
-
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+
+    // Add cleanup for crosshair VAO/VBO before terminating GLFW
+    glDeleteVertexArrays(1, &crosshairVAO);
+    glDeleteBuffers(1, &crosshairVBO);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -478,4 +415,54 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
+}
+
+bool intersectRayAABB(
+    const glm::vec3& rayOrigin,
+    const glm::vec3& rayDirection,
+    const glm::vec3& boxMin,
+    const glm::vec3& boxMax,
+    float& tMin, // Output: the closest intersection distance
+    float& tMax  // Output: the farthest intersection distance
+) {
+    tMin = 0.0f; // Start with the ray's origin
+    tMax = std::numeric_limits<float>::max();
+
+    for (int i = 0; i < 3; i++) {
+        if (fabs(rayDirection[i]) < 1e-8) { // Parallel ray
+            if (rayOrigin[i] < boxMin[i] || rayOrigin[i] > boxMax[i]) {
+                return false; // No intersection
+            }
+        }
+        else {
+            // Compute intersection distances for this axis
+            float t1 = (boxMin[i] - rayOrigin[i]) / rayDirection[i];
+            float t2 = (boxMax[i] - rayOrigin[i]) / rayDirection[i];
+
+            // Ensure t1 is the minimum and t2 is the maximum
+            if (t1 > t2) std::swap(t1, t2);
+
+            // Update tMin and tMax to find the intersection interval
+            tMin = std::max(tMin, t1);
+            tMax = std::min(tMax, t2);
+
+            // If the intervals do not overlap, no intersection
+            if (tMin > tMax) return false;
+        }
+    }
+    return true; // Intersection occurs
+}
+
+// Function to detect ray-cube intersection
+bool rayIntersectsCube(
+    const glm::vec3& rayOrigin,
+    const glm::vec3& rayDirection,
+    const glm::vec3& cubePosition,
+    float cubeSize
+) {
+    glm::vec3 boxMin = cubePosition - glm::vec3(cubeSize / 2.0f);
+    glm::vec3 boxMax = cubePosition + glm::vec3(cubeSize / 2.0f);
+    float tMin, tMax;
+
+    return intersectRayAABB(rayOrigin, rayDirection, boxMin, boxMax, tMin, tMax);
 }

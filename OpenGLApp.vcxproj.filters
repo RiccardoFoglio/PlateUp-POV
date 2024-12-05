@@ -52,7 +52,9 @@
     <None Include="crosshair.vs">
       <Filter>File di origine</Filter>
     </None>
-    <None Include="crosshair.fs" />
+    <None Include="crosshair.fs">
+      <Filter>File di origine</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Examples\Example 9\container.jpg">

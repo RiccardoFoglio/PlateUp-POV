@@ -2,5 +2,5 @@
 out vec4 FragColor;
 
 void main() {
-    FragColor = vec4(1.0, 1.0, 1.0, 1.0); // White color for the crosshair
+    FragColor = vec4(1.0, 1.0, 1.0, 1.0); // White color
 }

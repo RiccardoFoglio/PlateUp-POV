@@ -21,6 +21,8 @@ const float PITCH = 0.0f;
 const float SPEED = 2.5f;
 const float SENSITIVITY = 0.1f;
 const float ZOOM = 45.0f;
+const float CAM_HEIGHT = 0.5f;
+
 
 
 // An abstract camera class that processes input and calculates the corresponding Euler Angles, Vectors and Matrices for use in OpenGL
@@ -53,7 +55,7 @@ public:
     // constructor with scalar values
     Camera(float posX, float posY, float posZ, float upX, float upY, float upZ, float yaw, float pitch) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
     {
-        Position = glm::vec3(posX, posY, posZ);
+        Position = glm::vec3(posX, CAM_HEIGHT, posZ);
         WorldUp = glm::vec3(upX, upY, upZ);
         Yaw = yaw;
         Pitch = pitch;
@@ -70,10 +72,15 @@ public:
     void ProcessKeyboard(Camera_Movement direction, float deltaTime)
     {
         float velocity = MovementSpeed * deltaTime;
+        
+        // fix camera height to CAM_HEIGHT
+        glm::vec3 front1 = Front;
+        front1.y = 0.0;
+
         if (direction == FORWARD)
-            Position += Front * velocity;
+            Position += front1 * velocity;
         if (direction == BACKWARD)
-            Position -= Front * velocity;
+            Position -= front1 * velocity;
         if (direction == LEFT)
             Position -= Right * velocity;
         if (direction == RIGHT)

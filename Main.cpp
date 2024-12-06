@@ -87,6 +87,7 @@ int main()
     // ------------------------------------
     Shader ourShader("shader.vs", "shader.fs");
     Shader crosshairShader("crosshair.vs", "crosshair.fs");
+    Shader terrainShader("terrain.vs", "terrain.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -135,7 +136,7 @@ int main()
     };
     // world space positions of our cubes
     glm::vec3 cubePositions[] = {
-        glm::vec3(0.0f,  0.0f,  0.0f),
+        glm::vec3(1.0f,  1.0f,  5.0f),
         glm::vec3(2.0f,  5.0f, -15.0f),
         glm::vec3(-1.5f, -2.2f, -2.5f),
         glm::vec3(-3.8f, -2.0f, -12.3f),
@@ -253,6 +254,10 @@ int main()
     crosshairShader.use();
 
 
+    // Terrain Setup
+
+
+
 
 
 
@@ -264,7 +269,6 @@ int main()
     // render loop
     // render loop
     // render loop
-
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -335,9 +339,10 @@ int main()
 
         // After rendering cubes, render the crosshair
         crosshairShader.use();
-
         glBindVertexArray(crosshairVAO);
-        glDrawArrays(GL_LINES, 0, 4);        
+        glDrawArrays(GL_LINES, 0, 4);     
+
+
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------

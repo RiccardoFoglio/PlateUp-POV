@@ -155,6 +155,8 @@
     <None Include="shader.vs" />
     <None Include="shader_light.fs" />
     <None Include="shader_light.vs" />
+    <None Include="stencil_testing.fs" />
+    <None Include="stencil_testing.vs" />
     <None Include="terrain.fs" />
     <None Include="terrain.vs" />
   </ItemGroup>

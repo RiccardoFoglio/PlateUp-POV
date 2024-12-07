@@ -55,8 +55,18 @@
     <None Include="crosshair.fs">
       <Filter>File di origine</Filter>
     </None>
-    <None Include="terrain.vs" />
-    <None Include="terrain.fs" />
+    <None Include="terrain.fs">
+      <Filter>File di origine</Filter>
+    </None>
+    <None Include="terrain.vs">
+      <Filter>File di origine</Filter>
+    </None>
+    <None Include="stencil_testing.fs">
+      <Filter>File di origine</Filter>
+    </None>
+    <None Include="stencil_testing.vs">
+      <Filter>File di origine</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Examples\Example 9\container.jpg">

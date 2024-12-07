@@ -21,7 +21,7 @@ const float PITCH = 0.0f;
 const float SPEED = 2.5f;
 const float SENSITIVITY = 0.1f;
 const float ZOOM = 45.0f;
-const float CAM_HEIGHT = 0.5f;
+const float CAM_HEIGHT = 1.0f;
 
 
 
@@ -46,6 +46,7 @@ public:
     // constructor with vectors
     Camera(glm::vec3 position = glm::vec3(0.0f, CAM_HEIGHT, 0.0f), glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), float yaw = YAW, float pitch = PITCH) : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
     {
+        position.y = CAM_HEIGHT;
         Position = position;
         WorldUp = up;
         Yaw = yaw;
@@ -76,6 +77,16 @@ public:
         // fix camera height to CAM_HEIGHT
         glm::vec3 front1 = Front;
         front1.y = 0.0;
+
+        //aggiunta di limiti al movimento della camera sul piano        
+        if (Position.x > 4.8f)
+            Position.x = 4.8f;        
+        else if (Position.x < -4.8f)
+            Position.x = -4.8f;        
+        if (Position.z > 4.8f)
+            Position.z = 4.8f;        
+        else if (Position.z < -4.8f)
+            Position.z = -4.8f;
 
         if (direction == FORWARD)
             Position += front1 * velocity;

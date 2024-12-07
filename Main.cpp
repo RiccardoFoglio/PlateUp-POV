@@ -58,7 +58,7 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Example19", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "PlateUp-POV", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -171,7 +171,7 @@ int main()
     
     unsigned int cubeTexture = loadTexture("resources/textures/container.jpg");
 
-    // Plane
+    // Floor
     // -------------------------------------------------------------------------------------------
 
     float planeVertices[] = {
@@ -197,7 +197,7 @@ int main()
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
-    unsigned int floorTexture = loadTexture("resources/textures/wood_floor.png");
+    unsigned int floorTexture = loadTexture("resources/textures/wood_floor.jpg");
 
 
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
@@ -208,8 +208,6 @@ int main()
 
     // -------------------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------------------
-
-
 
     // Crosshair Setup
     float crosshairVertices[] = {
@@ -233,23 +231,8 @@ int main()
     crosshairShader.use();
 
 
-    // Terrain Setup
-
-
-
-
-
-
-
-
     // render loop
-    // render loop
-    // render loop
-    // render loop
-    // render loop
-    // render loop
-    // render loop
-    // -----------
+    // ---------------------------------------------------------------------------------------------------
     while (!glfwWindowShouldClose(window))
     {
         // per-frame time logic
@@ -339,7 +322,7 @@ int main()
         glStencilMask(0x00);
         glDisable(GL_DEPTH_TEST);
         shaderSingleColor.use();
-        float scale = 1.1f;
+        float scale = 1.03f;
         // cubes
         glBindVertexArray(cubeVAO);
         glBindTexture(GL_TEXTURE_2D, cubeTexture);
@@ -359,14 +342,10 @@ int main()
         glStencilFunc(GL_ALWAYS, 0, 0xFF);
         glEnable(GL_DEPTH_TEST);
 
-
-
         // After rendering cubes, render the crosshair
         crosshairShader.use();
         glBindVertexArray(crosshairVAO);
         glDrawArrays(GL_LINES, 0, 4);     
-
-
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------

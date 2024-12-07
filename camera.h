@@ -77,6 +77,16 @@ public:
         glm::vec3 front1 = Front;
         front1.y = 0.0;
 
+        //aggiunta di limiti al movimento della camera sul piano
+        if (Position.x > 4.8f)
+            Position.x = 4.8f;
+        else if (Position.x < -4.8f)
+            Position.x = -4.8f;
+        if (Position.z > 4.8f)
+            Position.z = 4.8f;
+        else if (Position.z < -4.8f)
+            Position.z = -4.8f;
+
         if (direction == FORWARD)
             Position += front1 * velocity;
         if (direction == BACKWARD)

@@ -1,2 +1,5 @@
-﻿  Main.cpp
-  OpenGLApp.vcxproj -> E:\Documenti\PoliTO\Magistrale\Informatica Grafica\PlateUp\OpenGLApp  - demos\OpenGLApp\x64\Debug\OpenGLApp.exe
+﻿  object_selection.cpp
+  Main.cpp
+  Generazione del codice in corso...
+LINK : warning LNK4098: la libreria predefinita 'MSVCRT' è in conflitto con l'utilizzo di altre librerie; usare /NODEFAULTLIB:libreria
+  OpenGLApp.vcxproj -> E:\Documenti\PoliTO\Magistrale\Informatica Grafica\PlateUp-POV\OpenGLApp  - demos\OpenGLApp\x64\Debug\OpenGLApp.exe

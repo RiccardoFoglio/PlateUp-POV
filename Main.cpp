@@ -9,6 +9,7 @@
 #include "shader_s.h"
 #include "camera.h"
 #include "object_selection.h"
+#include "model.h"
 
 #include <iostream>
 
@@ -90,83 +91,9 @@ int main()
     Shader ourShader("shader.vs", "shader.fs");
     Shader crosshairShader("crosshair.vs", "crosshair.fs");
     Shader terrainShader("terrain.vs", "terrain.fs");
-    Shader shaderSingleColor("stencil_testing.vs", "stencil_testing.fs");
+    //Shader shaderSingleColor("stencil_testing.vs", "stencil_testing.fs");
 
-    // set up vertex data (and buffer(s)) and configure vertex attributes
-    // ------------------------------------------------------------------
-    float cubeVertices[] = {
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
-
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
-
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
-    };
-    // world space positions of our cubes
-    glm::vec3 cubePositions[] = {
-        glm::vec3(-4.0f,  0.0f,  1.0f),
-        glm::vec3(-4.0f,  0.0f,  2.0f),
-        glm::vec3(-4.0f,  1.0f,  2.0f),
-        glm::vec3(-4.0f,  0.0f,  -1.0f),
-        glm::vec3(-4.0f,  0.0f,  -2.0f),
-        glm::vec3(-4.0f,  2.0f,  -1.0f),
-        glm::vec3(-4.0f,  2.0f,  -2.0f),
-        glm::vec3(0.0f,   0.0f,  1.0f),
-        glm::vec3(0.0f,   0.0f,  -1.0f),
-        glm::vec3(0.0f,   0.0f,  0.0f)
-    };
-
-    unsigned int cubeVAO, cubeVBO;
-    glGenVertexArrays(1, &cubeVAO);
-    glGenBuffers(1, &cubeVBO);
-    glBindVertexArray(cubeVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), &cubeVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    glBindVertexArray(0);
-    // load and create a texture 
-    // -------------------------
-    
-    unsigned int cubeTexture = loadTexture("resources/images/container.jpg");
-
+   
     // Floor
     // -------------------------------------------------------------------------------------------
 
@@ -201,6 +128,10 @@ int main()
     ourShader.use();
     ourShader.setInt("texture1", 0);
     //ourShader.setInt("texture2", 1);
+
+    Model isola("resources/isola/isola_OpenGL.obj");
+
+
 
     // -------------------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------------------
@@ -247,12 +178,12 @@ int main()
         glm::vec3 rayDirection = camera.Front;
 
         // Check for intersection with any cube
-        for (const auto& cubePosition : cubePositions) {
-            if (rayIntersectsCube(rayOrigin, rayDirection, cubePosition, 1.0f)) {
-                cubeSelected = true;
-                break; // Exit loop as one cube is selected
-            }
-        }
+        //for (const auto& cubePosition : cubePositions) {
+        //    if (rayIntersectsCube(rayOrigin, rayDirection, cubePosition, 1.0f)) {
+        //        cubeSelected = true;
+        //        break; // Exit loop as one cube is selected
+        //    }
+       // }
 
         // If left click is pressed and a cube is selected, exit
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && cubeSelected) {
@@ -266,12 +197,12 @@ int main()
 
 
         // set uniforms
-        shaderSingleColor.use();
+        //shaderSingleColor.use();
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        shaderSingleColor.setMat4("view", view);
-        shaderSingleColor.setMat4("projection", projection);
+        //shaderSingleColor.setMat4("view", view);
+        //shaderSingleColor.setMat4("projection", projection);
 
 
         ourShader.use();
@@ -289,55 +220,16 @@ int main()
         glBindVertexArray(0);
 
 
+        // render the loaded model
+        //glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f)); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));  // it's a bit too big for our scene, so scale it down
+        ourShader.setMat4("model", model);
+        isola.Draw(ourShader);
 
-        // 1st. render pass, draw objects as normal, writing to the stencil buffer
-        // --------------------------------------------------------------------
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0xFF);
-        // render cubes
-        glBindVertexArray(cubeVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, cubeTexture);
-        for (unsigned int i = 0; i < 10; i++)
-        {
-            // calculate the model matrix for each object and pass it to shader before drawing
-            glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
-            model = glm::translate(model, cubePositions[i]);
-            //float angle = 20.0f * i;
-            //model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-            ourShader.setMat4("model", model);
 
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
 
-        // 2nd. render pass: now draw slightly scaled versions of the objects, this time disabling stencil writing.
-        // Because the stencil buffer is now filled with several 1s. The parts of the buffer that are 1 are not drawn, thus only drawing 
-        // the objects' size differences, making it look like borders.
-        // -----------------------------------------------------------------------------------------------------------------------------
-        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-        glDisable(GL_DEPTH_TEST);
-        shaderSingleColor.use();
-        float scale = 1.03f;
-        // cubes
-        glBindVertexArray(cubeVAO);
-        glBindTexture(GL_TEXTURE_2D, cubeTexture);
-
-        for (unsigned int i = 0; i < 10; i++)
-        {
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, cubePositions[i]);
-            //float angle = 20.0f * i;
-            //model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-            model = glm::scale(model, glm::vec3(scale, scale, scale));
-            shaderSingleColor.setMat4("model", model);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-        glBindVertexArray(0);
-        glStencilMask(0xFF);
-        glStencilFunc(GL_ALWAYS, 0, 0xFF);
-        glEnable(GL_DEPTH_TEST);
-
+       
         // After rendering cubes, render the crosshair
         crosshairShader.use();
         glBindVertexArray(crosshairVAO);
@@ -351,9 +243,7 @@ int main()
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
-    glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &planeVAO);
-    glDeleteBuffers(1, &cubeVBO);
     glDeleteBuffers(1, &planeVBO);
 
     // Add cleanup for crosshair VAO/VBO before terminating GLFW

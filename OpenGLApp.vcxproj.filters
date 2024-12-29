@@ -76,6 +76,8 @@
     <None Include="shader_text.fs" />
     <None Include="shader_post-it.vs" />
     <None Include="shader_post-it.fs" />
+    <None Include="hitbox.vs" />
+    <None Include="hitbox.fs" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="resources\images\post-it.JPG">

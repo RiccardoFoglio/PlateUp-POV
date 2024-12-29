@@ -56,3 +56,17 @@ bool rayIntersectsCube(
 
     return intersectRayAABB(rayOrigin, rayDirection, boxMin, boxMax, tMin, tMax);
 }
+
+bool rayIntersectsCuboid(
+    const glm::vec3& rayOrigin,
+    const glm::vec3& rayDirection,
+    const glm::vec3& cuboidPosition,
+    const glm::vec3& cuboidSize // Width, height, length
+) {
+    // Compute the bounding box for the cuboid
+    glm::vec3 boxMin = cuboidPosition - cuboidSize / 2.0f;
+    glm::vec3 boxMax = cuboidPosition + cuboidSize / 2.0f;
+    float tMin, tMax;
+
+    return intersectRayAABB(rayOrigin, rayDirection, boxMin, boxMax, tMin, tMax);
+}

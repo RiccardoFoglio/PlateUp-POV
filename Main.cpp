@@ -7,9 +7,6 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/intersect.hpp> // For ray-box intersection
 
-#include <ft2build.h>  //for text rendering
-#include FT_FREETYPE_H
-
 #include "shader_s.h"
 #include "camera.h"
 #include "object_selection.h"
@@ -20,6 +17,9 @@
 #include <iostream>
 #include <map>
 #include <string>
+#include <irrKlang.h>
+#include <ft2build.h>  //for text rendering
+#include FT_FREETYPE_H
 
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -29,6 +29,7 @@ void processInput(GLFWwindow* window);
 
 unsigned int loadTexture(const char* path);
 
+const bool DEBUG = true;
 
 // settings
 const unsigned int SCR_WIDTH = 800;
@@ -55,6 +56,8 @@ Text inventoryText(SCR_WIDTH, SCR_HEIGHT);
 // inventory
 Inventory inventory(true);
 
+// sound engine
+irrklang::ISoundEngine* engine;
 
 int main()
 {
@@ -124,6 +127,9 @@ int main()
     Shader postItShader("shader_post-it.vs", "shader_post-it.fs");
 
     Shader textShader("shader_text.vs", "shader_text.fs");
+
+    Shader wireframeShader("hitbox.vs", "hitbox.fs");
+
     //Shader shaderSingleColor("stencil_testing.vs", "stencil_testing.fs");
 
    
@@ -235,6 +241,14 @@ int main()
     Model island("resources/isola/isola_OpenGL.obj");
 
 
+    // turn on Sound engine
+    // -------------------------------------------------------------------------------------------
+
+    engine = irrklang::createIrrKlangDevice();
+    if (!engine)
+        return 0; // error starting up the engine
+
+
     //text shader
     // -------------------------------------------------------------------------------------------
 
@@ -315,14 +329,9 @@ int main()
     postItShader.setMat4("projection", orthoProjection);
     
 
-    /* pos coords
-    800.0f, 600.0f, -0.5f,
-        500.0f, 300.0f, -0.5f,
-        500.0f, 600.0f, -0.5f,
-        800.0f, 300.0f, -0.5f*/
+    // configure VAO/VBO for texture quads
+    // -------------------------------------------------------------------------------------------
 
-        // configure VAO/VBO for texture quads
-        // -----------------------------------
     unsigned int textVAO, textVBO;
     glGenVertexArrays(1, &textVAO);
     glGenBuffers(1, &textVBO);
@@ -335,6 +344,56 @@ int main()
     glBindVertexArray(0);
 
     textShader.use();
+
+
+    // hitbox setup
+    // -------------------------------------------------------------------------------------------
+
+    float hitboxVertices[] = {
+        // Front face
+        -0.5f, -0.5f,  0.5f, // Bottom-left
+         0.5f, -0.5f,  0.5f, // Bottom-right
+         0.5f,  0.5f,  0.5f, // Top-right
+        -0.5f,  0.5f,  0.5f, // Top-left
+
+        // Back face
+        -0.5f, -0.5f, -0.5f, // Bottom-left
+         0.5f, -0.5f, -0.5f, // Bottom-right
+         0.5f,  0.5f, -0.5f, // Top-right
+        -0.5f,  0.5f, -0.5f  // Top-left
+    };
+
+    // Indices for rendering edges (pairs of vertices)
+    unsigned int hitboxIndices[] = {
+        // Front face
+        0, 1, 1, 2, 2, 3, 3, 0,
+        // Back face
+        4, 5, 5, 6, 6, 7, 7, 4,
+        // Connecting edges
+        0, 4, 1, 5, 2, 6, 3, 7
+    };
+    unsigned int hitboxVAO, hitboxVBO, hitboxEBO;
+    glGenVertexArrays(1, &hitboxVAO);
+    glGenBuffers(1, &hitboxVBO);
+    glGenBuffers(1, &hitboxEBO);
+
+    glBindVertexArray(hitboxVAO);
+
+    // Vertex buffer
+    glBindBuffer(GL_ARRAY_BUFFER, hitboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(hitboxVertices), hitboxVertices, GL_STATIC_DRAW);
+
+    // Element buffer
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, hitboxEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(hitboxIndices), hitboxIndices, GL_STATIC_DRAW);
+
+    // Vertex attributes
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindVertexArray(0);
+
+
 
 
     // RENDER LOOP
@@ -358,17 +417,25 @@ int main()
         glm::vec3 rayOrigin = camera.Position;
         glm::vec3 rayDirection = camera.Front;
 
-        // Check for intersection with any cube
-        //for (const auto& cubePosition : cubePositions) {
-        //    if (rayIntersectsCube(rayOrigin, rayDirection, cubePosition, 1.0f)) {
-        //        cubeSelected = true;
-        //        break; // Exit loop as one cube is selected
-        //    }
-       // }
+        //island
+        glm::vec3 islandPosition = glm::vec3(0.0f, -0.5f, 0.0f);
+        glm::vec3 islandPositionHitbox = glm::vec3(-0.1f, 0.0f, 0.05f);
+        glm::vec3 islandSize = glm::vec3(0.5f, 0.5f, 0.5f);
+        glm::vec3 islandSizeHitbox = glm::vec3(1.6f, 1.0f, 3.0f);
+
+
+
+        // Check for intersection with any clickable object
+        if (rayIntersectsCuboid(rayOrigin, rayDirection, islandPositionHitbox, islandSizeHitbox)) {
+            cubeSelected = true;
+        }
 
         // If left click is pressed and a cube is selected, exit
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && cubeSelected) {
-            glfwSetWindowShouldClose(window, true);
+            
+            engine->play2D("resources/media/bell.wav");
+
+            //glfwSetWindowShouldClose(window, true);
         }
 
         // render
@@ -408,10 +475,11 @@ int main()
 
         // render the loaded model
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));  // it's a bit too big for our scene, so scale it down
+        model = glm::translate(model, islandPosition); // translate it down so it's at the center of the scene
+        model = glm::scale(model, islandSize);  // it's a bit too big for our scene, so scale it down
         ourShader.setMat4("model", model);
         island.Draw(ourShader);
+
 
         // also draw the lamp object
         lightCubeShader.use();
@@ -433,8 +501,7 @@ int main()
 
 
         // Draw the inventory
-
-        glDrawArrays(GL_LINES, 0, 4);
+        // -------------------------------------------------------------------------------
 
         if (inventory.GetState())
         {
@@ -483,6 +550,31 @@ int main()
         }
 
 
+        // hitbox FOR DEBUG PURPOSES
+
+        if (DEBUG) {
+            // Bind the wireframe shader
+            wireframeShader.use();
+
+            glm::vec3 objectPosition = glm::vec3(-0.1f, 0.0f, 0.05f);
+            glm::vec3 objectSize = glm::vec3(1.6f, 1.0f, 3.0f); // Width, height, length
+
+            // Set uniforms for the shader
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, objectPosition); // Position of the hitbox
+            model = glm::scale(model, objectSize);        // Size of the hitbox (matches the bounding box)
+
+            wireframeShader.setMat4("model", model);
+            wireframeShader.setMat4("view", view);
+            wireframeShader.setMat4("projection", projection);
+            wireframeShader.setVec3("color", glm::vec3(1.0f, 0.0f, 0.0f)); // Red color
+
+            // Draw the edges of the bounding box
+            glBindVertexArray(hitboxVAO);
+            glDrawElements(GL_LINES, 24, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(0);
+
+        }
 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)

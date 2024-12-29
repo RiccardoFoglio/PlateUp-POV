@@ -158,6 +158,8 @@
   <ItemGroup>
     <None Include="crosshair.fs" />
     <None Include="crosshair.vs" />
+    <None Include="hitbox.fs" />
+    <None Include="hitbox.vs" />
     <None Include="shader.fs" />
     <None Include="shader.vs" />
     <None Include="shader_light.fs" />

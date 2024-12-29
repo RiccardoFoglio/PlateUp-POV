@@ -8,12 +8,20 @@
 
 #include "shader_s.h"
 #include "camera.h"
-#include "object_selection.h"
-#include "model.h"
+
+#include "text.h"
+
+#include <ft2build.h>  //for text rendering
+#include FT_FREETYPE_H
+
+#include "inventory.h"
 
 #include <iostream>
+#include <map>
+#include <string>
 
 #include <glm/gtx/intersect.hpp> // For ray-box intersection
+
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -21,6 +29,9 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
 unsigned int loadTexture(const char* path);
+
+bool intersectRayAABB(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& boxMin, const glm::vec3& boxMax, float& tMin, float& tMax);
+bool rayIntersectsCube(const glm::vec3& rayOrigin, const glm::vec3& rayDirection, const glm::vec3& cubePosition, float cubeSize);
 
 
 // settings
@@ -39,8 +50,12 @@ bool firstMouse = true;
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
 
-// lighting
-glm::vec3 lightPos(4.0f, 4.0f, 2.0f);
+//text
+Text testoInventario(SCR_WIDTH, SCR_HEIGHT);
+
+//inventory
+Inventory inventario(true);
+
 
 
 int main()
@@ -58,7 +73,7 @@ int main()
 
     // glfw window creation
     // --------------------
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "PlateUp-POV", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Example19", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -88,130 +103,143 @@ int main()
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glEnable(GL_BLEND); // for text rendering
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // build and compile our shader zprogram
     // ------------------------------------
     Shader ourShader("shader.vs", "shader.fs");
-
-    // Shader lightingShader("light_effect.vs", "light_effect.fs");
-    Shader lightCubeShader("shader_light.vs", "shader_light.fs");
-
     Shader crosshairShader("crosshair.vs", "crosshair.fs");
-
-    //Shader shaderSingleColor("stencil_testing.vs", "stencil_testing.fs");
-
-   
-    // Floor
-    // -------------------------------------------------------------------------------------------
-
+    Shader terrainShader("terrain.vs", "terrain.fs");
+    Shader shaderSingleColor("stencil_testing.vs", "stencil_testing.fs");
+    Shader postItShader("shader_post-it.vs", "shader_post-it.fs");
     
+    //text shader
+    Shader textShader("shader_text.vs", "shader_text.fs");
+    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
+    textShader.use();
+    glUniformMatrix4fv(glGetUniformLocation(textShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+    FT_Library ft = testoInventario.SetFreeType();
+    std::string font_name = "resources/fonts/Roboto/Roboto-Bold.ttf";
+    std::string font = testoInventario.FindFont(font_name);
+    testoInventario.LoadFontAsFace(ft, font);
+
+
+    // set up vertex data (and buffer(s)) and configure vertex attributes
+    // ------------------------------------------------------------------
+    float cubeVertices[] = {
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+    };
+    // world space positions of our cubes
+    glm::vec3 cubePositions[] = {
+        glm::vec3(1.0f,  1.0f,  5.0f),
+        glm::vec3(2.0f,  5.0f, -15.0f),
+        glm::vec3(-1.5f, -2.2f, -2.5f),
+        glm::vec3(-3.8f, -2.0f, -12.3f),
+        glm::vec3(2.4f, -0.4f, -3.5f),
+        glm::vec3(-1.7f,  3.0f, -7.5f),
+        glm::vec3(1.3f, -2.0f, -2.5f),
+        glm::vec3(1.5f,  2.0f, -2.5f),
+        glm::vec3(1.5f,  0.2f, -1.5f),
+        glm::vec3(-1.3f,  1.0f, -1.5f)
+    };
+
+    unsigned int cubeVAO, cubeVBO;
+    glGenVertexArrays(1, &cubeVAO);
+    glGenBuffers(1, &cubeVBO);
+    glBindVertexArray(cubeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), &cubeVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0);
+    // load and create a texture 
+    // -------------------------
+    
+    unsigned int cubeTexture = loadTexture("resources/textures/container.jpg");
+
+    // Plane
+    // -------------------------------------------------------------------------------------------
 
     float planeVertices[] = {
-        // positions          // normals           // texture Coords
-         5.0f, -0.5f,  5.0f,  0.0f, 1.0f, 0.0f,  4.0f, 0.0f,
-        -5.0f, -0.5f,  5.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
-        -5.0f, -0.5f, -5.0f,  0.0f, 1.0f, 0.0f,  0.0f, 4.0f,
+        // positions          // texture Coords (note we set these higher than 1 (together with GL_REPEAT as texture wrapping mode). this will cause the floor texture to repeat)
+         5.0f, -0.5f,  5.0f,  2.0f, 0.0f,
+        -5.0f, -0.5f,  5.0f,  0.0f, 0.0f,
+        -5.0f, -0.5f, -5.0f,  0.0f, 2.0f,
 
-         5.0f, -0.5f,  5.0f,  0.0f, 1.0f, 0.0f,  4.0f, 0.0f,
-        -5.0f, -0.5f, -5.0f,  0.0f, 1.0f, 0.0f,  0.0f, 4.0f,
-         5.0f, -0.5f, -5.0f,  0.0f, 1.0f, 0.0f,  4.0f, 4.0f
+         5.0f, -0.5f,  5.0f,  2.0f, 0.0f,
+        -5.0f, -0.5f, -5.0f,  0.0f, 2.0f,
+         5.0f, -0.5f, -5.0f,  2.0f, 2.0f
     };
 
-
-    unsigned int planeVAO, VBO;
+    unsigned int planeVAO, planeVBO;
     glGenVertexArrays(1, &planeVAO);
-    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &planeVBO);
     glBindVertexArray(planeVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), &planeVertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0); // Position
     glEnableVertexAttribArray(0);
-
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); // Normal
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); // Texture Coords
-    glEnableVertexAttribArray(2);
-
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glBindVertexArray(0);
 
-    unsigned int floorTexture = loadTexture("resources/images/floor2.jpg");
+    unsigned int floorTexture = loadTexture("resources/textures/wood_floor.png");
 
-
-    // lighting setup
-    // -------------------------------------------------------------------------------------------
-
-    float vertices[] = {
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
-    };
-    // first, configure the cube's VAO (and VBO)
-
-    unsigned int lightCubeVAO;
-    glGenVertexArrays(1, &lightCubeVAO);
-    glGenBuffers(1, &VBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindVertexArray(lightCubeVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // note that we update the lamp's position attribute's stride to reflect the updated buffer data
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
 
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
     // -------------------------------------------------------------------------------------------
     ourShader.use();
-    ourShader.setInt("texture_diffuse1", 0);
+    ourShader.setInt("texture1", 0);
     //ourShader.setInt("texture2", 1);
 
-    Model isola("resources/isola/isola_OpenGL.obj");
-
-
     // -------------------------------------------------------------------------------------------
     // -------------------------------------------------------------------------------------------
+
+
 
     // Crosshair Setup
     float crosshairVertices[] = {
@@ -234,9 +262,71 @@ int main()
 
     crosshairShader.use();
 
+    //vertici per sfondo
+    float postItVertices[] = {
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, //top right
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, //bottom left
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, //top left
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f //bottom right
+    };
+
+    glm::vec3 postItPosition = glm::vec3(650.0f, 450.0f,-0.5f);
+
+    unsigned int postitVAO, postitVBO;
+    glGenVertexArrays(1, &postitVAO);
+    glGenBuffers(1, &postitVBO);
+    glBindVertexArray(postitVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, postitVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), &planeVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0);
+
+    postItShader.use();
+
+    unsigned int postItTexture = loadTexture("resources/images/post-it.JPG");
+
+    /* pos coords
+    800.0f, 600.0f, -0.5f,
+        500.0f, 300.0f, -0.5f,
+        500.0f, 600.0f, -0.5f,
+        800.0f, 300.0f, -0.5f*/
+
+    // configure VAO/VBO for texture quads
+    // -----------------------------------
+    unsigned int textVAO, textVBO;
+    glGenVertexArrays(1, &textVAO);
+    glGenBuffers(1, &textVBO);
+    glBindVertexArray(textVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    textShader.use();
+
+
+    // Terrain Setup
+
+
+
+
+
+
+
 
     // render loop
-    // ---------------------------------------------------------------------------------------------------
+    // render loop
+    // render loop
+    // render loop
+    // render loop
+    // render loop
+    // render loop
+    // -----------
     while (!glfwWindowShouldClose(window))
     {
         // per-frame time logic
@@ -255,12 +345,12 @@ int main()
         glm::vec3 rayDirection = camera.Front;
 
         // Check for intersection with any cube
-        //for (const auto& cubePosition : cubePositions) {
-        //    if (rayIntersectsCube(rayOrigin, rayDirection, cubePosition, 1.0f)) {
-        //        cubeSelected = true;
-        //        break; // Exit loop as one cube is selected
-        //    }
-       // }
+        for (const auto& cubePosition : cubePositions) {
+            if (rayIntersectsCube(rayOrigin, rayDirection, cubePosition, 1.0f)) {
+                cubeSelected = true;
+                break; // Exit loop as one cube is selected
+            }
+        }
 
         // If left click is pressed and a cube is selected, exit
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && cubeSelected) {
@@ -272,66 +362,114 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); 
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, floorTexture);
 
         // set uniforms
-        //shaderSingleColor.use();
+        shaderSingleColor.use();
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        //shaderSingleColor.setMat4("view", view);
-        //shaderSingleColor.setMat4("projection", projection);
+        shaderSingleColor.setMat4("view", view);
+        shaderSingleColor.setMat4("projection", projection);
 
 
         ourShader.use();
         ourShader.setMat4("view", view);
         ourShader.setMat4("projection", projection);
 
-        ourShader.setVec3("lightPos", lightPos);
-        ourShader.setVec3("viewPos", camera.Position);
-        ourShader.setVec3("lightColor", glm::vec3(1.0f)); // White light
-        ourShader.setVec3("objectColor", glm::vec3(1.0f, 0.5f, 0.31f)); // Optional if using texture
-
-
 
         // draw floor as normal, but don't write the floor to the stencil buffer, we only care about the containers. We set its mask to 0x00 to not write to the stencil buffer.
         glStencilMask(0x00);
         // floor
         glBindVertexArray(planeVAO);
-
+        glBindTexture(GL_TEXTURE_2D, floorTexture);
         ourShader.setMat4("model", glm::mat4(1.0f));
         glDrawArrays(GL_TRIANGLES, 0, 6);
-        //glBindVertexArray(0);
-
-
-        // render the loaded model
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f)); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));  // it's a bit too big for our scene, so scale it down
-        ourShader.setMat4("model", model);
-        isola.Draw(ourShader);
+        glBindVertexArray(0);
 
 
 
-        // also draw the lamp object
-        lightCubeShader.use();
-        lightCubeShader.setMat4("projection", projection);
-        lightCubeShader.setMat4("view", view);
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.2f)); // a smaller cube
-        lightCubeShader.setMat4("model", model);
+        // 1st. render pass, draw objects as normal, writing to the stencil buffer
+        // --------------------------------------------------------------------
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
+        // render cubes
+        glBindVertexArray(cubeVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+        for (unsigned int i = 0; i < 10; i++)
+        {
+            // calculate the model matrix for each object and pass it to shader before drawing
+            glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+            model = glm::translate(model, cubePositions[i]);
+            float angle = 20.0f * i;
+            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+            ourShader.setMat4("model", model);
 
-        glBindVertexArray(lightCubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
-       
+        // 2nd. render pass: now draw slightly scaled versions of the objects, this time disabling stencil writing.
+        // Because the stencil buffer is now filled with several 1s. The parts of the buffer that are 1 are not drawn, thus only drawing 
+        // the objects' size differences, making it look like borders.
+        // -----------------------------------------------------------------------------------------------------------------------------
+        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+        glStencilMask(0x00);
+        glDisable(GL_DEPTH_TEST);
+        shaderSingleColor.use();
+        float scale = 1.1f;
+        // cubes
+        glBindVertexArray(cubeVAO);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+
+        for (unsigned int i = 0; i < 10; i++)
+        {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, cubePositions[i]);
+            float angle = 20.0f * i;
+            model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
+            model = glm::scale(model, glm::vec3(scale, scale, scale));
+            shaderSingleColor.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
+        glBindVertexArray(0);
+        glStencilMask(0xFF);
+        glStencilFunc(GL_ALWAYS, 0, 0xFF);
+        glEnable(GL_DEPTH_TEST);
+
+
+
         // After rendering cubes, render the crosshair
         crosshairShader.use();
         glBindVertexArray(crosshairVAO);
-        glDrawArrays(GL_LINES, 0, 4);     
+        glDrawArrays(GL_LINES, 0, 4); 
+        
+        if (inventario.GetState()) 
+        {
+            postItShader.use();
+            glBindVertexArray(postitVAO);
+            glBindTexture(GL_TEXTURE_2D, postItTexture);
 
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, postItPosition);
+            postItShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glBindVertexArray(0);
+
+            testoInventario.RenderText(textShader, "Inventario", 600.0f, 560.0f, 0.75f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            testoInventario.RenderText(textShader, "Pomodori ", 610.0f, 530.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string pom = std::to_string(inventario.GetPomodori());
+            testoInventario.RenderText(textShader, pom, 740.0f, 530.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            testoInventario.RenderText(textShader, "Insalata ", 610.0f, 508.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string ins = std::to_string(inventario.GetInsalata());
+            testoInventario.RenderText(textShader, ins, 740.0f, 508.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            testoInventario.RenderText(textShader, "Pane ", 610.0f, 486.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string pan = std::to_string(inventario.GetPane());
+            testoInventario.RenderText(textShader, pan, 740.0f, 486.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            testoInventario.RenderText(textShader, "Hamburger ", 610.0f, 464.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string ham = std::to_string(inventario.GetHamburger());
+            testoInventario.RenderText(textShader, ham, 740.0f, 464.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+        }
+        
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -340,20 +478,24 @@ int main()
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------
+    glDeleteVertexArrays(1, &cubeVAO);
     glDeleteVertexArrays(1, &planeVAO);
-    glDeleteVertexArrays(1, &lightCubeVAO);
-    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &cubeVBO);
+    glDeleteBuffers(1, &planeVBO);
 
     // Add cleanup for crosshair VAO/VBO before terminating GLFW
     glDeleteVertexArrays(1, &crosshairVAO);
     glDeleteBuffers(1, &crosshairVBO);
+
+    // Add cleanup for text VAO/VBO before terminating GLFW
+    glDeleteVertexArrays(1, &textVAO);
+    glDeleteBuffers(1, &textVBO);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
     glfwTerminate();
     return 0;
 }
-
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
@@ -370,6 +512,10 @@ void processInput(GLFWwindow* window)
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    //Add input for inventory
+    /*if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        inventario.SwapState();*/
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -379,7 +525,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
-    aspectRatio = (float)width / (float)height;
 }
 
 
@@ -413,6 +558,56 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     camera.ProcessMouseScroll(static_cast<float>(yoffset));
 }
 
+bool intersectRayAABB(
+    const glm::vec3& rayOrigin,
+    const glm::vec3& rayDirection,
+    const glm::vec3& boxMin,
+    const glm::vec3& boxMax,
+    float& tMin, // Output: the closest intersection distance
+    float& tMax  // Output: the farthest intersection distance
+) {
+    tMin = 0.0f; // Start with the ray's origin
+    tMax = std::numeric_limits<float>::max();
+
+    for (int i = 0; i < 3; i++) {
+        if (fabs(rayDirection[i]) < 1e-8) { // Parallel ray
+            if (rayOrigin[i] < boxMin[i] || rayOrigin[i] > boxMax[i]) {
+                return false; // No intersection
+            }
+        }
+        else {
+            // Compute intersection distances for this axis
+            float t1 = (boxMin[i] - rayOrigin[i]) / rayDirection[i];
+            float t2 = (boxMax[i] - rayOrigin[i]) / rayDirection[i];
+
+            // Ensure t1 is the minimum and t2 is the maximum
+            if (t1 > t2) std::swap(t1, t2);
+
+            // Update tMin and tMax to find the intersection interval
+            tMin = std::max(tMin, t1);
+            tMax = std::min(tMax, t2);
+
+            // If the intervals do not overlap, no intersection
+            if (tMin > tMax) return false;
+        }
+    }
+    return true; // Intersection occurs
+}
+
+// Function to detect ray-cube intersection
+bool rayIntersectsCube(
+    const glm::vec3& rayOrigin,
+    const glm::vec3& rayDirection,
+    const glm::vec3& cubePosition,
+    float cubeSize
+) {
+    glm::vec3 boxMin = cubePosition - glm::vec3(cubeSize / 2.0f);
+    glm::vec3 boxMax = cubePosition + glm::vec3(cubeSize / 2.0f);
+    float tMin, tMax;
+
+    return intersectRayAABB(rayOrigin, rayDirection, boxMin, boxMax, tMin, tMax);
+}
+
 // utility function for loading a 2D texture from file
 // ---------------------------------------------------
 unsigned int loadTexture(char const* path)
@@ -424,21 +619,30 @@ unsigned int loadTexture(char const* path)
     unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
     if (data)
     {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+
         glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
     }
     else
     {
         std::cout << "Texture failed to load at path: " << path << std::endl;
+        stbi_image_free(data);
     }
-    
-    stbi_image_free(data);
 
     return textureID;
 }

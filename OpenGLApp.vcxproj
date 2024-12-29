@@ -145,6 +145,7 @@
     <ClCompile Include="stb_image.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="inventory.h" />
     <ClInclude Include="object_selection.h" />
     <ClInclude Include="camera.h" />
     <ClInclude Include="mesh.h" />
@@ -152,6 +153,7 @@
     <ClInclude Include="shader.h" />
     <ClInclude Include="shader_s.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="text.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="crosshair.fs" />
@@ -160,10 +162,21 @@
     <None Include="shader.vs" />
     <None Include="shader_light.fs" />
     <None Include="shader_light.vs" />
+    <None Include="shader_post-it.fs" />
+    <None Include="shader_post-it.vs" />
+    <None Include="shader_text.fs" />
+    <None Include="shader_text.vs" />
     <None Include="stencil_testing.fs" />
     <None Include="stencil_testing.vs" />
     <None Include="light_effect.fs" />
     <None Include="light_effect.vs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="resources\images\awesomeface.png" />
+    <Image Include="resources\images\container.jpg" />
+    <Image Include="resources\images\floor.jpg" />
+    <Image Include="resources\images\floor2.jpg" />
+    <Image Include="resources\images\post-it.JPG" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

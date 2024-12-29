@@ -50,6 +50,12 @@
     <ClInclude Include="object_selection.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
+    <ClInclude Include="text.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="inventory.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shader.vs">
@@ -66,5 +72,26 @@
     <None Include="light_effect.fs" />
     <None Include="shader_light.vs" />
     <None Include="shader_light.fs" />
+    <None Include="shader_text.vs" />
+    <None Include="shader_text.fs" />
+    <None Include="shader_post-it.vs" />
+    <None Include="shader_post-it.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="resources\images\post-it.JPG">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="resources\images\awesomeface.png">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="resources\images\container.jpg">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="resources\images\floor.jpg">
+      <Filter>File di risorse</Filter>
+    </Image>
+    <Image Include="resources\images\floor2.jpg">
+      <Filter>File di risorse</Filter>
+    </Image>
   </ItemGroup>
 </Project>

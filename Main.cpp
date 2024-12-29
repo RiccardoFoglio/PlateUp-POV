@@ -5,15 +5,22 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/intersect.hpp> // For ray-box intersection
+
+#include <ft2build.h>  //for text rendering
+#include FT_FREETYPE_H
 
 #include "shader_s.h"
 #include "camera.h"
 #include "object_selection.h"
 #include "model.h"
+#include "text.h"
+#include "inventory.h"
 
 #include <iostream>
+#include <map>
+#include <string>
 
-#include <glm/gtx/intersect.hpp> // For ray-box intersection
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -42,11 +49,18 @@ float lastFrame = 0.0f;
 // lighting
 glm::vec3 lightPos(4.0f, 4.0f, 2.0f);
 
+// text
+Text inventoryText(SCR_WIDTH, SCR_HEIGHT);
+
+// inventory
+Inventory inventory(true);
+
 
 int main()
 {
     // glfw: initialize and configure
-    // ------------------------------
+    // -------------------------------------------------------------------------------------------
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -56,8 +70,10 @@ int main()
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 #endif
 
+
     // glfw window creation
-    // --------------------
+    // -------------------------------------------------------------------------------------------
+
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "PlateUp-POV", NULL, NULL);
     if (window == NULL)
     {
@@ -73,38 +89,46 @@ int main()
     // tell GLFW to capture our mouse
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
+
     // glad: load all OpenGL function pointers
-    // ---------------------------------------
+    // -------------------------------------------------------------------------------------------
+
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
 
+
     // configure global opengl state
-    // -----------------------------
+    // -------------------------------------------------------------------------------------------
+
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 
     // build and compile our shader zprogram
-    // ------------------------------------
+    // -------------------------------------------------------------------------------------------
+
     Shader ourShader("shader.vs", "shader.fs");
 
-    // Shader lightingShader("light_effect.vs", "light_effect.fs");
     Shader lightCubeShader("shader_light.vs", "shader_light.fs");
 
     Shader crosshairShader("crosshair.vs", "crosshair.fs");
 
+    Shader postItShader("shader_post-it.vs", "shader_post-it.fs");
+
+    Shader textShader("shader_text.vs", "shader_text.fs");
     //Shader shaderSingleColor("stencil_testing.vs", "stencil_testing.fs");
 
    
     // Floor
     // -------------------------------------------------------------------------------------------
-
-    
 
     float planeVertices[] = {
         // positions          // normals           // texture Coords
@@ -116,7 +140,6 @@ int main()
         -5.0f, -0.5f, -5.0f,  0.0f, 1.0f, 0.0f,  0.0f, 4.0f,
          5.0f, -0.5f, -5.0f,  0.0f, 1.0f, 0.0f,  4.0f, 4.0f
     };
-
 
     unsigned int planeVAO, VBO;
     glGenVertexArrays(1, &planeVAO);
@@ -142,7 +165,7 @@ int main()
     // lighting setup
     // -------------------------------------------------------------------------------------------
 
-    float vertices[] = {
+    float CubeLightVertices[] = {
         -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
          0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
          0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
@@ -192,7 +215,7 @@ int main()
     glGenBuffers(1, &VBO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(CubeLightVertices), CubeLightVertices, GL_STATIC_DRAW);
 
     glBindVertexArray(lightCubeVAO);
 
@@ -202,18 +225,32 @@ int main()
     glEnableVertexAttribArray(0);
 
     // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
-    // -------------------------------------------------------------------------------------------
     ourShader.use();
     ourShader.setInt("texture_diffuse1", 0);
     //ourShader.setInt("texture2", 1);
 
-    Model isola("resources/isola/isola_OpenGL.obj");
+    // Models
+    // -------------------------------------------------------------------------------------------
+
+    Model island("resources/isola/isola_OpenGL.obj");
 
 
+    //text shader
     // -------------------------------------------------------------------------------------------
-    // -------------------------------------------------------------------------------------------
+
+    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
+    textShader.use();
+    glUniformMatrix4fv(glGetUniformLocation(textShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+    FT_Library ft = inventoryText.SetFreeType();
+    std::string font_name = "resources/fonts/Roboto/Roboto-Bold.ttf";
+    std::string font = inventoryText.FindFont(font_name);
+    inventoryText.LoadFontAsFace(ft, font);
+
 
     // Crosshair Setup
+    // -------------------------------------------------------------------------------------------
+
     float crosshairVertices[] = {
         -0.03f / aspectRatio,  0.0f,
          0.03f / aspectRatio,  0.0f,
@@ -234,9 +271,76 @@ int main()
 
     crosshairShader.use();
 
+    //Inventory Setup
+    // -------------------------------------------------------------------------------------------
 
-    // render loop
+    float postItVertices[] = {
+        // positions         // texture coords
+        1.0f,  1.0f, 0.0f,   1.0f, 1.0f, // top right
+        0.8f,  1.0f, 0.0f,   0.0f, 1.0f, // top left
+        0.8f,  0.8f, 0.0f,   0.0f, 0.0f, // bottom left
+
+        1.0f,  1.0f, 0.0f,   1.0f, 1.0f, // top right
+        0.8f,  0.8f, 0.0f,   0.0f, 0.0f, // bottom left
+        1.0f,  0.8f, 0.0f,   1.0f, 0.0f  // bottom right
+    };
+
+    glm::vec3 postItPosition = glm::vec3(650.0f, 450.0f, -0.5f);
+
+    // Post-it VAO/VBO Setup
+    unsigned int postItVAO, postItVBO;
+    glGenVertexArrays(1, &postItVAO);
+    glGenBuffers(1, &postItVBO);
+    glBindVertexArray(postItVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, postItVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(postItVertices), postItVertices, GL_STATIC_DRAW);
+
+    // Positions
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    // Texture Coords
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    // Load Post-it Texture
+    unsigned int postItTexture = loadTexture("resources/images/post-it.JPG");
+
+    postItShader.use();
+    glm::mat4 orthoProjection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
+    postItShader.setMat4("projection", orthoProjection);
+    
+
+    /* pos coords
+    800.0f, 600.0f, -0.5f,
+        500.0f, 300.0f, -0.5f,
+        500.0f, 600.0f, -0.5f,
+        800.0f, 300.0f, -0.5f*/
+
+        // configure VAO/VBO for texture quads
+        // -----------------------------------
+    unsigned int textVAO, textVBO;
+    glGenVertexArrays(1, &textVAO);
+    glGenBuffers(1, &textVBO);
+    glBindVertexArray(textVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    textShader.use();
+
+
+    // RENDER LOOP
     // ---------------------------------------------------------------------------------------------------
+    // ---------------------------------------------------------------------------------------------------
+
     while (!glfwWindowShouldClose(window))
     {
         // per-frame time logic
@@ -279,10 +383,7 @@ int main()
         //shaderSingleColor.use();
         glm::mat4 model = glm::mat4(1.0f);
         glm::mat4 view = camera.GetViewMatrix();
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        //shaderSingleColor.setMat4("view", view);
-        //shaderSingleColor.setMat4("projection", projection);
-
+        projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 
         ourShader.use();
         ourShader.setMat4("view", view);
@@ -310,9 +411,7 @@ int main()
         model = glm::translate(model, glm::vec3(0.0f, -0.5f, 0.0f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(0.5f, 0.5f, 0.5f));  // it's a bit too big for our scene, so scale it down
         ourShader.setMat4("model", model);
-        isola.Draw(ourShader);
-
-
+        island.Draw(ourShader);
 
         // also draw the lamp object
         lightCubeShader.use();
@@ -332,6 +431,60 @@ int main()
         glBindVertexArray(crosshairVAO);
         glDrawArrays(GL_LINES, 0, 4);     
 
+
+        // Draw the inventory
+
+        glDrawArrays(GL_LINES, 0, 4);
+
+        if (inventory.GetState())
+        {
+            // Render Post-it Fixed to Top-Right Corner
+            glEnable(GL_DEPTH_TEST); // Enable depth testing for Post-it rendering
+            postItShader.use();
+            glBindVertexArray(postItVAO);
+
+            // Bind Post-it Texture
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, postItTexture);
+            
+            // Model Matrix for Positioning in Top-Right Corner
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, postItPosition);
+            model = glm::scale(model, glm::vec3(200.0f, 150.0f, 1.0f));
+            postItShader.setMat4("model", model);
+            postItShader.setMat4("projection", projection);
+
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glBindVertexArray(0);
+            //glDisable(GL_DEPTH_TEST); // Disable depth testing for transparent text
+
+            // Enable blending for text rendering
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+            textShader.use(); // Ensure text shader is active
+
+            inventoryText.RenderText(textShader, "Inventario", 600.0f, 560.0f, 0.75f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            inventoryText.RenderText(textShader, "Pomodori ", 610.0f, 530.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string pom = std::to_string(inventory.GetPomodori());
+            inventoryText.RenderText(textShader, pom, 740.0f, 530.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            inventoryText.RenderText(textShader, "Insalata ", 610.0f, 508.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string ins = std::to_string(inventory.GetInsalata());
+            inventoryText.RenderText(textShader, ins, 740.0f, 508.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            inventoryText.RenderText(textShader, "Pane ", 610.0f, 486.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string pan = std::to_string(inventory.GetPane());
+            inventoryText.RenderText(textShader, pan, 740.0f, 486.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            inventoryText.RenderText(textShader, "Hamburger ", 610.0f, 464.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string ham = std::to_string(inventory.GetHamburger());
+            inventoryText.RenderText(textShader, ham, 740.0f, 464.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+
+            // Disable blending after text rendering
+            glDisable(GL_BLEND);
+        }
+
+
+
+
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -347,6 +500,10 @@ int main()
     // Add cleanup for crosshair VAO/VBO before terminating GLFW
     glDeleteVertexArrays(1, &crosshairVAO);
     glDeleteBuffers(1, &crosshairVBO);
+
+    // Add cleanup for text VAO/VBO before terminating GLFW
+    glDeleteVertexArrays(1, &textVAO);
+    glDeleteBuffers(1, &textVBO);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------

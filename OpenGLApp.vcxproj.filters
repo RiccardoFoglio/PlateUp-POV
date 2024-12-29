@@ -35,6 +35,24 @@
     <ClInclude Include="camera.h">
       <Filter>File di intestazione</Filter>
     </ClInclude>
+<<<<<<< Updated upstream
+=======
+    <ClInclude Include="model.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="mesh.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="shader_s.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="text.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+    <ClInclude Include="inventory.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+>>>>>>> Stashed changes
   </ItemGroup>
   <ItemGroup>
     <None Include="shader.vs">
@@ -43,6 +61,7 @@
     <None Include="shader.fs">
       <Filter>File di origine</Filter>
     </None>
+<<<<<<< Updated upstream
     <None Include="shader_light.fs">
       <Filter>File di origine</Filter>
     </None>
@@ -75,5 +94,19 @@
     <Image Include="Examples\Example 10\awesomeface.png">
       <Filter>File di origine</Filter>
     </Image>
+=======
+    <None Include="crosshair.vs" />
+    <None Include="crosshair.fs" />
+    <None Include="terrain.vs" />
+    <None Include="stencil_testing.fs" />
+    <None Include="stencil_testing.vs" />
+    <None Include="terrain.fs" />
+    <None Include="shader_light.vs" />
+    <None Include="shader_light.fs" />
+    <None Include="shader_text.vs" />
+    <None Include="shader_text.fs" />
+    <None Include="shader_post-it.fs" />
+    <None Include="shader_post-it.vs" />
+>>>>>>> Stashed changes
   </ItemGroup>
 </Project>

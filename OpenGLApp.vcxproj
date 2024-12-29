@@ -145,8 +145,16 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="camera.h" />
+<<<<<<< Updated upstream
+=======
+    <ClInclude Include="inventory.h" />
+    <ClInclude Include="mesh.h" />
+    <ClInclude Include="model.h" />
+    <ClInclude Include="shader.h" />
+>>>>>>> Stashed changes
     <ClInclude Include="shader_s.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="text.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="crosshair.fs" />
@@ -155,6 +163,10 @@
     <None Include="shader.vs" />
     <None Include="shader_light.fs" />
     <None Include="shader_light.vs" />
+    <None Include="shader_post-it.fs" />
+    <None Include="shader_post-it.vs" />
+    <None Include="shader_text.fs" />
+    <None Include="shader_text.vs" />
     <None Include="stencil_testing.fs" />
     <None Include="stencil_testing.vs" />
     <None Include="terrain.fs" />

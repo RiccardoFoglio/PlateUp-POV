@@ -9,7 +9,16 @@
 #include "shader_s.h"
 #include "camera.h"
 
+#include "text.h"
+
+#include <ft2build.h>  //for text rendering
+#include FT_FREETYPE_H
+
+#include "inventory.h"
+
 #include <iostream>
+#include <map>
+#include <string>
 
 #include <glm/gtx/intersect.hpp> // For ray-box intersection
 
@@ -40,6 +49,12 @@ bool firstMouse = true;
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
+
+//text
+Text testoInventario(SCR_WIDTH, SCR_HEIGHT);
+
+//inventory
+Inventory inventario(true);
 
 
 
@@ -88,6 +103,8 @@ int main()
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    glEnable(GL_BLEND); // for text rendering
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // build and compile our shader zprogram
     // ------------------------------------
@@ -95,6 +112,19 @@ int main()
     Shader crosshairShader("crosshair.vs", "crosshair.fs");
     Shader terrainShader("terrain.vs", "terrain.fs");
     Shader shaderSingleColor("stencil_testing.vs", "stencil_testing.fs");
+    Shader postItShader("shader_post-it.vs", "shader_post-it.fs");
+    
+    //text shader
+    Shader textShader("shader_text.vs", "shader_text.fs");
+    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(SCR_WIDTH), 0.0f, static_cast<float>(SCR_HEIGHT));
+    textShader.use();
+    glUniformMatrix4fv(glGetUniformLocation(textShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+
+    FT_Library ft = testoInventario.SetFreeType();
+    std::string font_name = "resources/fonts/Roboto/Roboto-Bold.ttf";
+    std::string font = testoInventario.FindFont(font_name);
+    testoInventario.LoadFontAsFace(ft, font);
+
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -232,6 +262,53 @@ int main()
 
     crosshairShader.use();
 
+    //vertici per sfondo
+    float postItVertices[] = {
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, //top right
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, //bottom left
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, //top left
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f //bottom right
+    };
+
+    glm::vec3 postItPosition = glm::vec3(650.0f, 450.0f,-0.5f);
+
+    unsigned int postitVAO, postitVBO;
+    glGenVertexArrays(1, &postitVAO);
+    glGenBuffers(1, &postitVBO);
+    glBindVertexArray(postitVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, postitVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), &planeVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0);
+
+    postItShader.use();
+
+    unsigned int postItTexture = loadTexture("resources/images/post-it.JPG");
+
+    /* pos coords
+    800.0f, 600.0f, -0.5f,
+        500.0f, 300.0f, -0.5f,
+        500.0f, 600.0f, -0.5f,
+        800.0f, 300.0f, -0.5f*/
+
+    // configure VAO/VBO for texture quads
+    // -----------------------------------
+    unsigned int textVAO, textVBO;
+    glGenVertexArrays(1, &textVAO);
+    glGenBuffers(1, &textVBO);
+    glBindVertexArray(textVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, textVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    textShader.use();
+
 
     // Terrain Setup
 
@@ -364,10 +441,39 @@ int main()
         // After rendering cubes, render the crosshair
         crosshairShader.use();
         glBindVertexArray(crosshairVAO);
-        glDrawArrays(GL_LINES, 0, 4);     
+        glDrawArrays(GL_LINES, 0, 4); 
+
+<<<<<<< Updated upstream
 
 
+=======
+        if (inventario.GetState()) 
+        {
+            postItShader.use();
+            glBindVertexArray(postitVAO);
+            glBindTexture(GL_TEXTURE_2D, postItTexture);
 
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, postItPosition);
+            postItShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glBindVertexArray(0);
+
+            testoInventario.RenderText(textShader, "Inventario", 600.0f, 560.0f, 0.75f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            testoInventario.RenderText(textShader, "Pomodori ", 610.0f, 530.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string pom = std::to_string(inventario.GetPomodori());
+            testoInventario.RenderText(textShader, pom, 740.0f, 530.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            testoInventario.RenderText(textShader, "Insalata ", 610.0f, 508.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string ins = std::to_string(inventario.GetInsalata());
+            testoInventario.RenderText(textShader, ins, 720.0f, 508.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            testoInventario.RenderText(textShader, "Pane ", 610.0f, 486.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string pan = std::to_string(inventario.GetPane());
+            testoInventario.RenderText(textShader, pan, 700.0f, 486.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            testoInventario.RenderText(textShader, "Hamburger ", 610.0f, 464.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+            std::string ham = std::to_string(inventario.GetHamburger());
+            testoInventario.RenderText(textShader, ham, 740.0f, 464.0f, 0.5f, glm::vec3(0.3, 0.7f, 0.9f), textVAO, textVBO);
+        }
+>>>>>>> Stashed changes
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
@@ -384,6 +490,10 @@ int main()
     // Add cleanup for crosshair VAO/VBO before terminating GLFW
     glDeleteVertexArrays(1, &crosshairVAO);
     glDeleteBuffers(1, &crosshairVBO);
+
+    // Add cleanup for text VAO/VBO before terminating GLFW
+    glDeleteVertexArrays(1, &textVAO);
+    glDeleteBuffers(1, &textVBO);
 
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
@@ -406,6 +516,10 @@ void processInput(GLFWwindow* window)
         camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    //Add input for inventory
+    /*if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        inventario.SwapState();*/
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
